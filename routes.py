@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, url_for, request, session, redirect, abort
 from werkzeug.utils import secure_filename
 
-from .forms import SemesterForm
+from .forms import SemesterForm, CreateUserForm
 from .models import db, User, Semester, Course, Assignment, Question, QuestionFile
 from .dispatch import evaluate_submission
 
@@ -50,19 +50,23 @@ def home():
 def semester_form(semester_id):
     context = get_context()
     form = SemesterForm()
+    # If the form is submitted manually, process the data
     if form.validate_on_submit():
-        # if the form is being submitted, process it for data
-        if form.id.data:
-            # if there is a UID, this is editing an existing semester
+        # If there is a UID, then this semester already exists
+        if form.id.data != None:
+            # Edit the semester
             semester = Semester.query.filter_by(id=form.id.data).first()
             semester.season = form.season.data
             semester.year = form.year.data
         else:
-            # otherwise, this is creating a new semester
+            # Create a new semester
             semester = Semester(season=form.season.data, year=form.year.data)
+
         db.session.add(semester)
         db.session.commit()
         return redirect(url_for('main.home')) # FIXME
+
+    # If there is a semester selected, then display it
     elif semester_id is not None:
         semester = Semester.query.filter_by(id=semester_id).first()
         form.id.default = semester.id
@@ -70,6 +74,19 @@ def semester_form(semester_id):
         form.year.default = semester.year
         form.process()
     return render_template('semester_form.html', form=form, **context)
+
+
+@blueprint.route('/create_user/', methods=('GET', 'POST'))
+def create_user():
+    context = get_context()
+    form = CreateUserForm()
+    # If the user form is submitted manually
+    if form.validate_on_submit():
+        user = User(email=form.email.data, preferred_name="None", family_name="None")
+        db.session.add(user)
+        db.session.commit()
+
+    return render_template('person_form.html', form=form, **context)
 
 
 @blueprint.route('/person/<person_id>')
